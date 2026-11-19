@@ -1,0 +1,8 @@
+# dsh-radar — 生态雷达
+# 插入一个 Host 行：读 bundles 目录里的 radar.json，通过 /api/dsh-radar/* 供前端读取。
+- insert:
+    - id: dsh-radar
+      name: dsh-radar
+      config:
+        # 侧栏入口的显示名与是否显示，可在插件配置里改
+        sidebarEntry: true

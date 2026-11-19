@@ -1,0 +1,8 @@
+{
+  "meta": {
+    "title": "Ecosystem radar",
+    "description": "Ranking navigator for DSH plugins and agent skills. Opens from the sidebar, scans the full catalog against your thresholds, and copies an install prompt you can paste into any session.",
+    "detail": "docs/DETAIL.md"
+  },
+  "panel": "Ecosystem radar"
+}

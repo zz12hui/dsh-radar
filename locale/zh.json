@@ -1,0 +1,8 @@
+{
+  "meta": {
+    "title": "生态雷达",
+    "description": "DSH 插件与 Agent Skills 的排行导航。侧栏一键打开，全量扫描后按你调的阈值筛出值得装的，并可复制安装提示词丢给会话直接装。",
+    "detail": "docs/DETAIL.md"
+  },
+  "panel": "生态雷达"
+}

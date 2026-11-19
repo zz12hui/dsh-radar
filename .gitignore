@@ -1,0 +1,10 @@
+node_modules/
+payload.json
+data/catalog.json
+data/stars.json
+data/downloads.json
+data/repo_meta.json
+data/search_*.json
+data/search_skills_*.json
+*.log
+.DS_Store
