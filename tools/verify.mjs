@@ -20,11 +20,11 @@ const snapshot = JSON.parse(fs.readFileSync(dataPath, 'utf8'))
 // Pull the two pure helpers out of the module body and evaluate them alone.
 function extract(name) {
   const start = source.indexOf(`function ${name}(`)
-  if (start === -1) throw new Error(`${name} not found`)
-  // find the matching closing brace of the function body
+  const decl = start === -1 ? source.indexOf(`const ${name} = (`) : start
+  if (decl === -1) throw new Error(`${name} not found`)
+  // find the matching closing brace of the body (function or arrow alike)
   let depth = 0
-  let i = source.indexOf('{', start)
-  const open = i
+  let i = source.indexOf('{', decl)
   for (; i < source.length; i++) {
     if (source[i] === '{') depth++
     else if (source[i] === '}') {
@@ -32,7 +32,7 @@ function extract(name) {
       if (depth === 0) break
     }
   }
-  return source.slice(start, i + 1)
+  return source.slice(decl, i + 1)
 }
 
 const dictStart = source.indexOf('const DICT = [')
@@ -96,6 +96,37 @@ check('只有技能时不出现插件段', !onlySkill.includes('## 插件'))
 
 const empty = sandbox.buildPrompt([])
 check('空选择给出占位', empty.includes('还没勾选'))
+
+/* --- composer bridge: append instead of clobber ------------------------- */
+// `draftIntoComposer` closes over the module-level `composer` handle, so it is
+// lifted out of source together with a stand-in for that handle.
+{
+  const bridgeSrc = extract('draftIntoComposer').replace('const draftIntoComposer =', 'var draftIntoComposer =')
+  const box = { sessionId: null, actions: null, readDraft: null }
+  const scope = {
+    composer: box,
+    // the real body reads `composer.actions` / `composer.readDraft`
+  }
+  vm.createContext(scope)
+  vm.runInContext(bridgeSrc, scope)
+  const write = (text) => scope.draftIntoComposer(text)
+
+  check('没有会话时写入失败', write('hi') === false)
+  box.actions = { setDraft: (t) => { box.draft = t } }
+  box.readDraft = () => ''
+  check('空草稿直接写入', write('提示词') === true && box.draft === '提示词')
+
+  box.readDraft = () => '我自己写的'
+  write('提示词')
+  check('已有草稿时追加不覆盖', box.draft === '我自己写的\n\n提示词', JSON.stringify(box.draft))
+
+  box.readDraft = () => '有空白   \n'
+  write('追加')
+  check('追加前裁掉尾部空白', box.draft === '有空白\n\n追加', JSON.stringify(box.draft))
+
+  box.actions = { setDraft: () => { throw new Error('locked') } }
+  check('写入抛错时返回失败而不是崩溃', write('x') === false)
+}
 
 const failed = results.filter((r) => !r.ok)
 console.log(`\n${results.length - failed.length}/${results.length} passed`)

@@ -15,6 +15,52 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-radar'
     const API = '/api/dsh-radar'
 
+    /**
+     * The panel lives in the `main` slot, the composer in `main.conversation`.
+     * Only one of them is mounted at a time, and `inputActions` is handed to
+     * session-scope slots alone, so the panel cannot reach the composer by
+     * itself. A null-rendering dock entry captures the action face on the way
+     * past and parks it here; the panel picks it up afterwards.
+     *
+     * The reference deliberately survives unmount. The shell behind it belongs
+     * to the session and outlives the dock entry, so a captured face stays
+     * usable once the conversation is on screen again. Callers still treat
+     * every use as fallible — a closed session may not have one at all.
+     */
+    const composer = { sessionId: null, actions: null, readDraft: null }
+
+    /** Host-side handles the panel needs; filled in by apply(). */
+    const runtime = { ctx: null, layout: null }
+
+    const backToConversation = () => {
+      try {
+        const layout = runtime.layout ?? runtime.ctx?.get?.('layout')
+        if (layout?.selectPanel) {
+          layout.selectPanel(null)
+          return true
+        }
+      } catch {}
+      return false
+    }
+
+    /**
+     * Write into the composer without sending. `setDraft` replaces the whole
+     * draft, so an existing draft is appended to rather than dropped: losing
+     * something the user already typed would be worse than a cluttered box.
+     * @returns false when no composer is mounted to receive it.
+     */
+    const draftIntoComposer = (text) => {
+      try {
+        const actions = composer.actions
+        if (!actions?.setDraft) return false
+        const current = composer.readDraft?.() ?? ''
+        actions.setDraft(current.trim() ? `${current.trimEnd()}\n\n${text}` : text)
+        return true
+      } catch {
+        return false
+      }
+    }
+
     /* ------------------------------------------------------------------ data */
 
     const bridgeUrl = (endpoint) => {
@@ -97,6 +143,21 @@ window.__ModuleLoader__.load({
       strict: { stars: 3000, dl: 20000, pushed: 60, score: 60, limit: 20 },
     }
     const CFG_KEY = 'dsh-radar-cfg'
+    const UI_KEY = 'dsh-radar-ui'
+
+    /** Tab and scroll survive a trip to the conversation and back. */
+    const loadUi = () => {
+      try {
+        return { tab: 'discover', scroll: 0, ...JSON.parse(sessionStorage.getItem(UI_KEY) || '{}') }
+      } catch {
+        return { tab: 'discover', scroll: 0 }
+      }
+    }
+    const saveUi = (ui) => {
+      try {
+        sessionStorage.setItem(UI_KEY, JSON.stringify(ui))
+      } catch {}
+    }
 
     const loadCfg = () => {
       try {
@@ -243,7 +304,15 @@ window.__ModuleLoader__.load({
 .rr .rule output { width:52px; text-align:right; font-size:11.5px; color:var(--dsw-alias-label-tertiary,#8b8b8b); font-variant-numeric:tabular-nums; flex:none; }
 .rr .rule select { flex:1; background:var(--dsw-alias-bg-layer-2,rgba(255,255,255,.04)); border:1px solid var(--dsw-alias-border-l2,#333); color:inherit; font:inherit; font-size:12px; padding:4px 6px; border-radius:7px; outline:none; }
 .rr .sw { display:flex; align-items:center; gap:7px; font-size:12px; color:var(--dsw-alias-label-secondary,#b4b4b4); margin-bottom:8px; cursor:pointer; }
-.rr .sw input { accent-color:var(--dsw-alias-state-business-primary,#5b9dff); width:14px; height:14px; }
+
+    .rr { color-scheme:dark; }
+    .rr .sw input { appearance:none; -webkit-appearance:none; width:15px; height:15px; margin:0; flex:none;
+      border:1px solid var(--dsw-alias-border-l3,#4a4a4a); border-radius:4px; background:transparent;
+      cursor:pointer; position:relative; transition:background .12s,border-color .12s; }
+    .rr .sw input:hover { border-color:var(--dsw-alias-state-business-primary,#5b9dff); }
+    .rr .sw input:checked { background:var(--dsw-alias-state-business-primary,#5b9dff); border-color:transparent; }
+    .rr .sw input:checked::after { content:''; position:absolute; left:4px; top:1px; width:4px; height:8px;
+      border:solid #fff; border-width:0 1.8px 1.8px 0; transform:rotate(42deg); }
 .rr .presets { display:flex; gap:5px; margin-bottom:11px; }
 .rr .presets button { flex:1; font:inherit; font-size:11.5px; padding:5px 0; border-radius:7px; cursor:pointer; border:1px solid var(--dsw-alias-border-l2,#333); background:transparent; color:var(--dsw-alias-label-secondary,#b4b4b4); }
 .rr .presets button.on { background:var(--dsw-alias-button-primary-fill,#2f6fe4); border-color:transparent; color:#fff; }
@@ -251,18 +320,27 @@ window.__ModuleLoader__.load({
 .rr .dstat b { font-size:22px; color:var(--dsw-alias-state-success-primary,#41c98a); font-variant-numeric:tabular-nums; letter-spacing:-.4px; }
 .rr .dstat span { font-size:12px; color:var(--dsw-alias-label-tertiary,#8b8b8b); }
 .rr .list { border:1px solid var(--dsw-alias-border-l2,#333); border-radius:10px; overflow:hidden; }
-.rr .row { display:grid; grid-template-columns:22px 1fr 74px 78px 30px; gap:10px; align-items:center; padding:9px 11px; border-bottom:1px solid var(--dsw-alias-border-l1,#2a2a2a); cursor:pointer; }
+.rr .row { display:grid; grid-template-columns:20px minmax(0,1fr) 66px 70px 108px; gap:10px; align-items:center; padding:9px 11px; border-bottom:1px solid var(--dsw-alias-border-l1,#2a2a2a); cursor:pointer; }
 .rr .row:last-child { border-bottom:0; }
 .rr .row:hover { background:var(--dsw-alias-interactive-bg-hover,rgba(255,255,255,.05)); }
-.rr .row .pick { width:15px; height:15px; accent-color:var(--dsw-alias-state-business-primary,#5b9dff); cursor:pointer; }
+.rr .row.cur { background:rgba(91,157,255,.1); box-shadow:inset 2px 0 0 var(--dsw-alias-state-business-primary,#5b9dff); }
+.rr .row.cur .nm b { color:var(--dsw-alias-state-business-primary,#7fb2ff); }
+.rr .row .pick { appearance:none; -webkit-appearance:none; width:15px; height:15px; margin:0; flex:none;
+      border:1px solid var(--dsw-alias-border-l3,#4a4a4a); border-radius:4px; background:transparent;
+      cursor:pointer; position:relative; transition:background .12s,border-color .12s; }
+    .rr .row .pick:hover { border-color:var(--dsw-alias-state-business-primary,#5b9dff); }
+    .rr .row .pick:checked { background:var(--dsw-alias-state-business-primary,#5b9dff); border-color:transparent; }
+    .rr .row .pick:checked::after { content:''; position:absolute; left:4px; top:1px; width:4px; height:8px;
+      border:solid #fff; border-width:0 1.8px 1.8px 0; transform:rotate(42deg); }
 .rr .row .nm { min-width:0; }
 .rr .row .nm b { display:block; font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .rr .row .nm span { display:block; font-size:11.5px; color:var(--dsw-alias-label-tertiary,#8b8b8b); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .rr .row .nm i { font-style:normal; font-size:10.5px; padding:0 4px; border-radius:4px; margin-right:4px; background:rgba(91,157,255,.13); color:var(--dsw-alias-state-business-primary,#7fb2ff); }
 .rr .row .num { text-align:right; font-size:12px; font-variant-numeric:tabular-nums; color:var(--dsw-alias-label-secondary,#b4b4b4); }
 .rr .row .num i { display:block; font-style:normal; font-size:10.5px; color:var(--dsw-alias-label-caption,#777); }
-.rr .row .cp { font:inherit; font-size:11px; padding:3px 0; border-radius:6px; cursor:pointer; border:1px solid var(--dsw-alias-border-l2,#333); background:transparent; color:var(--dsw-alias-label-secondary,#b4b4b4); }
+.rr .row .cp { font:inherit; font-size:11px; padding:3px 7px; border-radius:6px; cursor:pointer; border:1px solid var(--dsw-alias-border-l2,#333); background:transparent; color:var(--dsw-alias-label-secondary,#b4b4b4); white-space:nowrap; }
 .rr .row .cp:hover { color:var(--dsw-alias-label-primary,#e6e6e6); border-color:var(--dsw-alias-border-l3,#444); }
+    @media (max-width:760px){ .rr .row { grid-template-columns:20px minmax(0,1fr) 70px 88px } .rr .row .num.dl { display:none } }
 .rr .picks { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:10px; }
 .rr .pickc { border:1px solid var(--dsw-alias-border-l2,#333); border-radius:10px; padding:11px 12px; background:var(--dsw-alias-bg-layer-1,rgba(255,255,255,.02)); display:flex; flex-direction:column; gap:6px; }
 .rr .pickc .t { display:flex; align-items:center; gap:6px; min-width:0; }
@@ -281,7 +359,13 @@ window.__ModuleLoader__.load({
 .rr .bar b { font-variant-numeric:tabular-nums; }
 .rr .bar button { font:inherit; font-size:12px; padding:5px 12px; border-radius:8px; cursor:pointer; border:1px solid var(--dsw-alias-border-l2,#333); background:transparent; color:inherit; }
 .rr .bar button.pri { background:var(--dsw-alias-button-primary-fill,#2f6fe4); border-color:transparent; color:#fff; }
-.rr .toast { position:fixed; left:50%; bottom:84px; transform:translateX(-50%); z-index:40; padding:8px 14px; border-radius:9px; font-size:12.5px; border:1px solid var(--dsw-alias-border-l3,#444); background:var(--dsw-alias-bg-layer-3,#242424); box-shadow:0 8px 24px rgba(0,0,0,.3); }
+.rr .toast { position:fixed; left:50%; bottom:84px; transform:translateX(-50%); z-index:40; display:flex; align-items:center; gap:12px; padding:8px 14px; border-radius:9px; font-size:12.5px; border:1px solid var(--dsw-alias-border-l3,#444); background:var(--dsw-alias-bg-layer-3,#242424); box-shadow:0 8px 24px rgba(0,0,0,.3); }
+.rr .toast button { font:inherit; font-size:12px; padding:3px 10px; border-radius:7px; cursor:pointer; border:1px solid var(--dsw-alias-border-l2,#333); background:transparent; color:var(--dsw-alias-state-business-primary,#7fb2ff); }
+.rr .headbar { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+.rr .headbar .back { display:inline-flex; align-items:center; gap:5px; font:inherit; font-size:12px; padding:5px 11px; border-radius:8px; cursor:pointer; border:1px solid var(--dsw-alias-border-l2,#333); background:transparent; color:var(--dsw-alias-label-secondary,#b4b4b4); }
+.rr .headbar .back:hover { color:var(--dsw-alias-label-primary,#e6e6e6); border-color:var(--dsw-alias-border-l3,#444); background:var(--dsw-alias-interactive-bg-hover,rgba(255,255,255,.06)); }
+.rr .headbar .keys { margin-left:auto; font-size:11px; color:var(--dsw-alias-label-caption,#777); }
+.rr .headbar .keys kbd { font:inherit; font-size:10.5px; padding:1px 5px; border-radius:4px; border:1px solid var(--dsw-alias-border-l2,#333); background:var(--dsw-alias-bg-layer-2,rgba(255,255,255,.04)); }
 .rr .loading { padding:40px; text-align:center; color:var(--dsw-alias-label-tertiary,#8b8b8b); font-size:13px; }
 .rr .err { padding:16px; border:1px solid var(--dsw-alias-state-error-primary,#d9534f); border-radius:10px; color:var(--dsw-alias-state-error-primary,#d9534f); font-size:13px; }
 .rr .modal { position:fixed; inset:0; z-index:50; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; padding:24px; }
@@ -298,15 +382,15 @@ window.__ModuleLoader__.load({
     /* -------------------------------------------------------------- components */
 
     function useToast() {
-      const [text, setText] = React.useState('')
+      const [state, setState] = React.useState(null)
       const timer = React.useRef(0)
-      const show = React.useCallback((message) => {
-        setText(message)
+      const show = React.useCallback((message, action) => {
+        setState({ message, action })
         clearTimeout(timer.current)
-        timer.current = setTimeout(() => setText(''), 1800)
+        timer.current = setTimeout(() => setState(null), 2600)
       }, [])
       React.useEffect(() => () => clearTimeout(timer.current), [])
-      return [text, show]
+      return [state, show]
     }
 
     async function copyText(text) {
@@ -333,7 +417,8 @@ window.__ModuleLoader__.load({
     function RadarPage() {
       const [data, setData] = React.useState(snapshot)
       const [error, setError] = React.useState('')
-      const [tab, setTab] = React.useState('discover')
+      const initialUi = React.useRef(loadUi())
+      const [tab, setTab] = React.useState(initialUi.current.tab)
       const [cfg, setCfg] = React.useState(loadCfg)
       const [selected, setSelected] = React.useState(() => new Map())
       const [prompt, setPrompt] = React.useState(null)
@@ -342,6 +427,12 @@ window.__ModuleLoader__.load({
       const [rankTab, setRankTab] = React.useState('plugins')
       const [rankQ, setRankQ] = React.useState('')
       const [rankLimit, setRankLimit] = React.useState(60)
+      const [onlyLive, setOnlyLive] = React.useState(false)
+      const [cursor, setCursor] = React.useState(-1)
+
+      const rootRef = React.useRef(null)
+      const searchRef = React.useRef(null)
+      const uiRef = React.useRef(initialUi.current)
 
       /* data */
       React.useEffect(() => {
@@ -369,6 +460,70 @@ window.__ModuleLoader__.load({
       /* discovery — recomputed on every open and every setting change */
       const discovery = React.useMemo(() => runDiscovery(data, cfg), [data, cfg])
 
+      /* Rank rows are built here rather than inside the view so the keyboard
+         cursor and the rendered list always walk the same array. */
+      const rankRows = React.useMemo(() => {
+        if (!data) return []
+        const q = rankQ.trim().toLowerCase()
+        let rows
+        if (rankTab === 'plugins') {
+          rows = data.plugins.map((r) => ({ kind: 'plugin', id: r[0], repo: r[1], cat: r[2], zh: r[3], stars: r[5], dl: r[6], pushed: r[7], score: r[8] }))
+          if (q) rows = rows.filter((r) => `${r.id} ${r.repo} ${r.zh} ${catName(data.cats, r.cat)}`.toLowerCase().includes(q))
+          rows.sort((a, b) => b.score - a.score)
+        } else if (rankTab === 'skills') {
+          rows = data.skills.map((r) => ({ kind: 'skill', id: r[0], owner: r[1], name: r[2], desc: r[3], stars: r[4], pushed: r[5], score: r[6] }))
+          if (q) rows = rows.filter((r) => `${r.id} ${r.desc}`.toLowerCase().includes(q))
+          rows.sort((a, b) => b.score - a.score)
+        } else {
+          rows = (data.rising || []).map((r) => ({ kind: r.kind === 'skill' ? 'skill' : 'plugin', id: r.id, repo: r.id, desc: r.desc, stars: r.stars, pushed: r.pushed, score: r.age ?? 0, age: r.age, rising: true }))
+          if (q) rows = rows.filter((r) => `${r.id} ${r.desc}`.toLowerCase().includes(q))
+        }
+        return rows
+      }, [data, rankTab, rankQ])
+
+      const live = React.useMemo(() => new Set(data?.installed || []), [data])
+
+      /* The exact list the cursor walks, in render order.
+         Picks is a card grid with its own buttons, so the cursor stays off it. */
+      const flat = React.useMemo(() => {
+        if (!data) return []
+        if (tab === 'discover') {
+          if (!discovery) return []
+          const pick = (arr) => (onlyLive ? arr.filter((r) => live.has(r.id)) : arr)
+          return [...pick(discovery.hits.plugin).slice(0, cfg.limit), ...pick(discovery.hits.skill).slice(0, cfg.limit)]
+        }
+        if (tab === 'rank') {
+          const rows = onlyLive ? rankRows.filter((r) => r.kind === 'plugin' && live.has(r.id)) : rankRows
+          return rows.slice(0, rankLimit)
+        }
+        return []
+      }, [data, tab, discovery, cfg.limit, rankRows, rankLimit, onlyLive, live])
+
+      /* Keep the cursor inside the list whenever it shrinks under it. */
+      React.useEffect(() => {
+        setCursor((c) => (c >= flat.length ? flat.length - 1 : c))
+      }, [flat.length])
+
+      /* Tab and scroll survive the trip to the conversation. */
+      React.useEffect(() => {
+        const next = { ...uiRef.current, tab }
+        uiRef.current = next
+        saveUi(next)
+      }, [tab])
+
+      React.useEffect(() => {
+        const root = rootRef.current
+        if (!root) return
+        const onScroll = () => {
+          uiRef.current = { ...uiRef.current, scroll: root.scrollTop }
+          saveUi(uiRef.current)
+        }
+        root.addEventListener('scroll', onScroll, { passive: true })
+        // Restore once, after the first paint has laid the list out.
+        if (uiRef.current.scroll) root.scrollTop = uiRef.current.scroll
+        return () => root.removeEventListener('scroll', onScroll)
+      }, [])
+
       /* selection */
       const toggle = React.useCallback((item) => {
         setSelected((prev) => {
@@ -394,6 +549,77 @@ window.__ModuleLoader__.load({
         [showToast],
       )
 
+      /** Hand the prompt to the composer instead of the clipboard. */
+      const sendToComposer = React.useCallback(
+        (items) => {
+          if (!items.length) return
+          const text = buildPrompt(items)
+          if (!draftIntoComposer(text)) {
+            showToast('会话还没打开，先点「返回会话」再试', {
+              label: '返回会话',
+              run: () => backToConversation(),
+            })
+            return
+          }
+          backToConversation()
+        },
+        [showToast],
+      )
+
+      /* Keyboard: / focuses search, j/k walk, space selects, Enter sends. */
+      React.useEffect(() => {
+        const onKey = (event) => {
+          const target = event.target
+          const typing = target instanceof HTMLElement
+            && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+          if (event.key === 'Escape') {
+            if (prompt !== null) { setPrompt(null); event.preventDefault(); return }
+            if (typing) { target.blur(); return }
+            backToConversation()
+            return
+          }
+          if (typing) return
+          if (event.metaKey || event.ctrlKey || event.altKey) return
+          const k = event.key
+          if (k === '/') {
+            event.preventDefault()
+            searchRef.current?.focus()
+            return
+          }
+          if (k === 'j' || k === 'k') {
+            event.preventDefault()
+            setCursor((c) => {
+              const next = k === 'j' ? c + 1 : c - 1
+              return Math.max(0, Math.min(flat.length - 1, next))
+            })
+            return
+          }
+          if (k === ' ' || k === 'x') {
+            const item = flat[cursor]
+            if (!item) return
+            event.preventDefault()
+            toggle(item)
+            return
+          }
+          if (k === 'Enter') {
+            const item = flat[cursor]
+            if (!item) return
+            event.preventDefault()
+            sendToComposer([item])
+          }
+        }
+        window.addEventListener('keydown', onKey)
+        return () => window.removeEventListener('keydown', onKey)
+      }, [flat, cursor, prompt, toggle, sendToComposer])
+
+      /* Keep the cursor row in view while walking with j/k. */
+      React.useEffect(() => {
+        const root = rootRef.current
+        if (!root || cursor < 0) return
+        const row = root.querySelector('[data-cursor="1"]')
+        row?.scrollIntoView({ block: 'nearest' })
+      }, [cursor])
+
       /* ------------------------------------------------------------- render */
 
       if (error) {
@@ -414,6 +640,24 @@ window.__ModuleLoader__.load({
       }
 
       const header = h('div', { key: 'head' }, [
+        h('div', { key: 'hb', className: 'headbar' }, [
+          h('button', {
+            key: 'b', className: 'back', title: '回到当前会话（Esc）',
+            onClick: () => backToConversation(),
+          }, ['← 返回会话']),
+          tab === 'rank'
+            ? h('label', { key: 'l', className: 'sw', style: { margin: 0 } }, [
+                h('input', { key: 'i', type: 'checkbox', checked: onlyLive, onChange: (e) => setOnlyLive(e.target.checked) }),
+                '只看本机已装',
+              ])
+            : null,
+          h('span', { key: 'k', className: 'keys' }, [
+            h('kbd', { key: 'a' }, '/'), ' 搜索  ',
+            h('kbd', { key: 'b' }, 'j'), h('kbd', { key: 'c' }, 'k'), ' 移动  ',
+            h('kbd', { key: 'd' }, '空格'), ' 勾选  ',
+            h('kbd', { key: 'e' }, 'Enter'), ' 放进会话',
+          ]),
+        ]),
         h('h1', { key: 'h' }, NS),
         h('p', { className: 'sub', key: 's' }, `数据快照 ${data.generated} · 每次打开自动重扫 · 全量 ${fmt(data.plugins.length)} 个插件与 ${fmt(data.skills.length)} 个技能`),
         h('div', { className: 'stats', key: 'st' }, [
@@ -426,7 +670,7 @@ window.__ModuleLoader__.load({
 
       const tabs = h('div', { className: 'tabs', key: 'tabs' },
         [['discover', '自动发现'], ['rank', '排行榜'], ['picks', '必装清单']].map(([id, label]) =>
-          h('button', { key: id, className: tab === id ? 'on' : '', onClick: () => setTab(id) }, label),
+          h('button', { key: id, className: tab === id ? 'on' : '', onClick: () => { setTab(id); setCursor(-1) } }, label),
         ),
       )
 
@@ -435,7 +679,8 @@ window.__ModuleLoader__.load({
       const bar = selected.size
         ? h('div', { className: 'bar', key: 'bar' }, [
             h('span', { key: 'n' }, ['已选 ', h('b', { key: 'b' }, selected.size), ' 项']),
-            h('button', { key: 'c', className: 'pri', onClick: () => openPrompt([...selected.values()]) }, '生成安装提示词'),
+            h('button', { key: 'p', className: 'pri', onClick: () => sendToComposer([...selected.values()]) }, '放进会话'),
+            h('button', { key: 'c', onClick: () => openPrompt([...selected.values()]) }, '看提示词'),
             h('button', { key: 'x', onClick: () => setSelected(new Map()) }, '清空'),
           ])
         : null
@@ -456,20 +701,36 @@ window.__ModuleLoader__.load({
                 if (ok) setPrompt(null)
               },
             }, '复制'),
+            h('button', {
+              key: 's',
+              onClick: () => {
+                const items = [...selected.values()]
+                if (!items.length) return
+                setPrompt(null)
+                sendToComposer(items)
+              },
+            }, '放进会话'),
             h('button', { key: 'd', onClick: () => setPrompt(null) }, '关闭'),
-            h('span', { className: 'hint', key: 'h' }, '粘贴到任意会话，让它替你装'),
+            h('span', { className: 'hint', key: 'h' }, '「放进会话」只写进输入框，不会自动发送'),
           ]),
         ]),
       )
 
-      return h('div', { className: 'rr' }, [
+      return h('div', { className: 'rr', ref: rootRef }, [
         h('style', { key: 'style' }, CSS),
         header,
         tabs,
         body,
         bar,
         modal,
-        toast ? h('div', { className: 'toast', key: 'toast' }, toast) : null,
+        toast
+          ? h('div', { className: 'toast', key: 'toast' }, [
+              h('span', { key: 'm' }, toast.message),
+              toast.action
+                ? h('button', { key: 'a', onClick: () => { toast.action.run(); } }, toast.action.label)
+                : null,
+            ])
+          : null,
       ])
 
       /* --------------------------------------------------------- sub views */
@@ -602,10 +863,12 @@ window.__ModuleLoader__.load({
 
         const rowsFor = (label, arr) => {
           if (!arr.length) return null
+          const shown = onlyLive ? arr.filter((it) => live.has(it.id)) : arr
+          if (!shown.length) return null
           return h('div', { key: label }, [
-            h('div', { key: 'h', style: { fontSize: 11.5, color: 'var(--dsw-alias-label-tertiary,#8b8b8b)', margin: '12px 0 6px' } }, `${label} · ${arr.length} 条`),
+            h('div', { key: 'h', style: { fontSize: 11.5, color: 'var(--dsw-alias-label-tertiary,#8b8b8b)', margin: '12px 0 6px' } }, `${label} · ${shown.length} 条`),
             h('div', { className: 'list', key: 'l' },
-              arr.slice(0, cfg.limit).map((it) => row(it)),
+              shown.slice(0, cfg.limit).map((it) => row(it)),
             ),
           ])
         }
@@ -632,7 +895,15 @@ window.__ModuleLoader__.load({
       function row(it) {
         const on = selected.has(it.id)
         const isPlugin = it.kind === 'plugin'
-        return h('div', { className: 'row', key: `${it.kind}:${it.id}`, onClick: () => toggle(it) }, [
+        const key = `${it.kind}:${it.id}`
+        const isCur = cursor >= 0 && flat[cursor] !== undefined
+          && `${flat[cursor].kind}:${flat[cursor].id}` === key
+        return h('div', {
+          className: isCur ? 'row cur' : 'row',
+          key,
+          'data-cursor': isCur ? '1' : undefined,
+          onClick: () => { toggle(it); setCursor(flat.findIndex((x) => `${x.kind}:${x.id}` === key)) },
+        }, [
           h('input', {
             key: 'c', className: 'pick', type: 'checkbox', checked: on,
             onClick: (e) => e.stopPropagation(),
@@ -644,40 +915,35 @@ window.__ModuleLoader__.load({
           ]),
           h('div', { className: 'num', key: 'st' }, [fmt(it.stars), h('i', { key: 'l' }, '星标')]),
           h('div', { className: 'num', key: 'dl' }, [
-            isPlugin ? fmt(it.dl) : it.score.toFixed(1),
+            isPlugin ? fmt(it.dl) : (it.score ?? 0).toFixed(1),
             h('i', { key: 'l' }, isPlugin ? '月下载' : '综合分'),
           ]),
-          h('button', {
-            key: 'cp', className: 'cp', title: '复制安装提示词',
-            onClick: async (e) => {
-              e.stopPropagation()
-              await copyOne(it)
-            },
-          }, '复制'),
+          h('div', { key: 'acts', style: { display: 'flex', gap: 4 } }, [
+            h('button', {
+              key: 'go', className: 'cp', title: '放进会话输入框',
+              onClick: (e) => { e.stopPropagation(); sendToComposer([it]) },
+            }, '放入'),
+            h('button', {
+              key: 'cp', className: 'cp', title: '复制安装提示词',
+              onClick: async (e) => { e.stopPropagation(); await copyOne(it) },
+            }, '复制'),
+          ]),
         ])
       }
 
       function rankView() {
-        const q = rankQ.trim().toLowerCase()
-        let rows
-        if (rankTab === 'plugins') {
-          rows = data.plugins.map((r) => ({ kind: 'plugin', id: r[0], repo: r[1], cat: r[2], zh: r[3], stars: r[5], dl: r[6], pushed: r[7], score: r[8] }))
-          if (q) rows = rows.filter((r) => `${r.id} ${r.repo} ${r.zh} ${catName(data.cats, r.cat)}`.toLowerCase().includes(q))
-          rows.sort((a, b) => b.score - a.score)
-        } else if (rankTab === 'skills') {
-          rows = data.skills.map((r) => ({ kind: 'skill', id: r[0], owner: r[1], name: r[2], desc: r[3], stars: r[4], pushed: r[5], score: r[6] }))
-          if (q) rows = rows.filter((r) => `${r.id} ${r.desc}`.toLowerCase().includes(q))
-          rows.sort((a, b) => b.score - a.score)
-        } else {
-          rows = (data.rising || []).map((r) => ({ kind: r.kind === 'skill' ? 'skill' : 'plugin', id: r.id, repo: r.id, desc: r.desc, stars: r.stars, pushed: r.pushed, score: r.age ?? 0, age: r.age, rising: true }))
-          if (q) rows = rows.filter((r) => `${r.id} ${r.desc}`.toLowerCase().includes(q))
-        }
+        const rows = onlyLive ? rankRows.filter((r) => r.kind === 'plugin' && live.has(r.id)) : rankRows
 
         return h('div', { key: 'rk' }, [
           h('div', { className: 'dsearch', key: 'd', style: { marginBottom: 12 } }, [
-            h('input', { key: 'i', value: rankQ, placeholder: '搜名字、作者、简介…', onChange: (e) => { setRankQ(e.target.value); setRankLimit(60) } }),
+            h('input', {
+              key: 'i', value: rankQ, ref: searchRef,
+              placeholder: '搜名字、作者、简介…（按 / 聚焦）',
+              onChange: (e) => { setRankQ(e.target.value); setRankLimit(60); setCursor(-1) },
+            }),
             h('select', {
-              key: 't', value: rankTab, onChange: (e) => setRankTab(e.target.value),
+              key: 't', value: rankTab,
+              onChange: (e) => { setRankTab(e.target.value); setCursor(-1) },
               style: { background: 'var(--dsw-alias-bg-layer-2,rgba(255,255,255,.04))', border: '1px solid var(--dsw-alias-border-l2,#333)', color: 'inherit', font: 'inherit', fontSize: 12, padding: '4px 7px', borderRadius: 7 },
             }, [['plugins', '插件'], ['skills', '技能'], ['rising', '新星']].map(([v, l]) => h('option', { key: v, value: v }, l))),
           ]),
@@ -712,12 +978,16 @@ window.__ModuleLoader__.load({
                 ]),
                 h('div', { className: 'acts', key: 'x' }, [
                   h('button', {
-                    key: 'c', className: 'pri',
+                    key: 'g', className: 'pri',
+                    onClick: () => sendToComposer([{ kind: 'plugin', id: p.id, repo: p.repo, zh: p.why }]),
+                  }, '放进会话'),
+                  h('button', {
+                    key: 'c',
                     onClick: async () => {
                       const ok = await copyText(buildPrompt([{ kind: 'plugin', id: p.id, repo: p.repo, zh: p.why }]))
                       showToast(ok ? '安装提示词已复制' : '复制失败')
                     },
-                  }, '复制安装提示词'),
+                  }, '复制'),
                 ]),
               ]),
             ),
@@ -737,11 +1007,54 @@ window.__ModuleLoader__.load({
       ])
     }
 
+    /**
+     * Reads the live draft. `useInput` is a selector hook, so it has to run at
+     * render level; this tiny component exists only to be that render level and
+     * to mirror the value into a ref the panel can read outside React.
+     */
+    function DraftSpy({ useInput, sink }) {
+      const draft = useInput((state) => state.draft)
+      sink.current = draft
+      return null
+    }
+
+    /**
+     * Renders nothing. Its only job is to be mounted inside a session so the
+     * framework hands over `inputActions` and `useInput`, which the panel
+     * cannot get on its own (the panel lives in `main`, a root-scope slot).
+     */
+    function ComposerBridge(props) {
+      const sessionId = props?.sessionId
+      const actions = props?.inputActions
+      const useInput = props?.useInput
+      const draftRef = React.useRef('')
+
+      React.useEffect(() => {
+        if (actions === undefined) return
+        composer.sessionId = sessionId ?? null
+        composer.actions = actions
+        // Reading the draft is how the panel appends instead of clobbering
+        // whatever is already typed in the box.
+        composer.readDraft = () => draftRef.current
+      }, [actions, sessionId])
+
+      return typeof useInput === 'function'
+        ? h(DraftSpy, { useInput, sink: draftRef })
+        : null
+    }
+
     /* ------------------------------------------------------------------ apply */
 
     const inject = ['slots']
 
     function apply(ctx) {
+      runtime.ctx = ctx
+      try {
+        runtime.layout = ctx.get('layout') ?? null
+      } catch {
+        runtime.layout = null
+      }
+
       let entryDispose = null
       let seatReady = false
       let enabled = true
@@ -779,6 +1092,12 @@ window.__ModuleLoader__.load({
 
       ctx.slots.inject('main', () =>
         ctx.slots.register({ name: 'main', key: PANEL_ID }, RadarPage),
+      )
+
+      /* The dock seat is additive and null-rendering; it only carries the
+         session's input actions across to the panel. */
+      ctx.slots.inject('conversation.composer.dock', () =>
+        ctx.slots.register({ name: 'conversation.composer.dock', id: 'dsh-radar-bridge', order: 90 }, ComposerBridge),
       )
     }
 
