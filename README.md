@@ -19,6 +19,10 @@
 
 <p align="center"><img src="./assets/readme/flow.png" width="100%" alt="打开 → 调阈值 → 复制提示词"></p>
 
+![自动发现](docs/screenshot-discover.png)
+
+![排行榜](docs/screenshot-rank.png)
+
 ## 2. 为什么是「复制提示词」而不是「一键安装」
 
 插件是在你机器上跑任意代码的东西。做成一个「立即安装」按钮，等于把装载权限交给一个刚打开两分钟的页面。
