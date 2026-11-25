@@ -1,10 +1,40 @@
 // Renders the radar panel off-DSH so the UI can be screenshotted without a
 // browser session: a minimal React reimplementation (state, effects, re-render
 // passes) plus a JSX-free HTML serializer.
+//
+//   PREVIEW_TAB=discover|rank|picks   which tab to open
+//   PREVIEW_DETAIL=1                  open the first row's detail window
 import fs from 'node:fs'
 import vm from 'node:vm'
 
-const SNAP = JSON.parse(fs.readFileSync('F:/zz12hui/dsh-radar-plugin/data/radar.json', 'utf8'))
+const ROOT = 'F:/zz12hui/dsh-radar-plugin'
+const SNAP = JSON.parse(fs.readFileSync(`${ROOT}/data/radar.json`, 'utf8'))
+// A README to show in the detail window. Drop a real one at
+// docs/sample-readme.md to preview your own; the fallback keeps the script
+// runnable on a clean checkout.
+const SAMPLE_PATH = `${ROOT}/docs/sample-readme.md`
+const SAMPLE = fs.existsSync(SAMPLE_PATH)
+  ? fs.readFileSync(SAMPLE_PATH, 'utf8')
+  : [
+      '<p align="center"><img src="docs/header.svg" alt="项目表头" width="640"></p>',
+      '',
+      '<p align="center"><a href="https://www.npmjs.com/x"><img alt="npm" src="b.svg"></a> <a href="https://github.com/x/y"><img alt="GitHub stars" src="s.svg"></a></p>',
+      '',
+      '# 示例插件',
+      '',
+      '一句话说明这个插件做什么。',
+      '',
+      '## 安装',
+      '',
+      '```sh',
+      'dsh plugin add some-plugin',
+      '```',
+      '',
+      '- 第一条特性',
+      '- 第二条特性',
+      '',
+      '> 一段引用。',
+    ].join('\n')
 
 /* ---------------- mini React ---------------- */
 const hookStore = new Map() // component fn -> hook slots
@@ -38,7 +68,7 @@ let dirty = false
 let pendingEffects = []
 
 /* ---------------- load module ---------------- */
-const src = fs.readFileSync('F:/zz12hui/dsh-radar-plugin/client.js', 'utf8')
+const src = fs.readFileSync(`${ROOT}/client.js`, 'utf8')
 let Page = null
 const slots = {
   register: (opt, Comp) => { if (opt.key === 'dsh-radar') Page = Comp; return () => {} },
@@ -47,15 +77,22 @@ const slots = {
 let exported = null
 const sandbox = {
   console, setTimeout, clearTimeout,
-  document: { baseURI: 'http://localhost:51346/', querySelector: () => null, addEventListener() {}, removeEventListener() {} },
+  document: { baseURI: 'http://localhost:53839/', querySelector: () => null, addEventListener() {}, removeEventListener() {} },
   addEventListener() {}, removeEventListener() {}, scrollTo() {},
   navigator: { clipboard: { writeText: async () => {} } },
   localStorage: { getItem: () => null, setItem() {} },
   sessionStorage: {
-    getItem: (k) => (k === 'dsh-radar-ui' && process.env.PREVIEW_TAB ? JSON.stringify({ tab: process.env.PREVIEW_TAB, scroll: 0 }) : null),
+    getItem: (k) => (k === 'dsh-radar-ui' && process.env.PREVIEW_TAB
+      ? JSON.stringify({ tab: process.env.PREVIEW_TAB, scroll: 0 })
+      : null),
     setItem() {},
   },
-  fetch: async () => ({ ok: true, json: async () => SNAP }),
+  fetch: async (url) => ({
+    ok: true,
+    json: async () => (String(url).includes('/readme')
+      ? { ok: true, text: SAMPLE, truncated: false, bytes: SAMPLE.length }
+      : SNAP),
+  }),
   AbortSignal: { timeout: () => undefined },
   location: { reload() {} },
   require: (n) => (n === 'react' ? React : {}),
@@ -73,7 +110,7 @@ exported.apply({
 })
 if (!Page) throw new Error('RadarPage was never registered on the main slot')
 
-/* ---------------- render loop ---------------- */
+/* ---------------- render ---------------- */
 const VOID = new Set(['input', 'br', 'img', 'hr', 'meta', 'link'])
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
 
@@ -98,26 +135,49 @@ function render(node) {
       return `${name}="${esc(v)}"`
     }).join(' ')
   const inner = children.map(render).join('')
+  collected.push({ type, props: props || {}, label: textOf(children) })
   return VOID.has(type) ? `<${type} ${attrs}>` : `<${type} ${attrs}>${inner}</${type}>`
 }
 
+/** Every host element produced during a render pass, in document order. */
+let collected = []
+function textOf(node) {
+  if (typeof node === 'string' || typeof node === 'number') return String(node)
+  if (Array.isArray(node)) return node.map(textOf).join('')
+  if (node && typeof node === 'object') return (node.children || []).map(textOf).join('')
+  return ''
+}
+
 async function paint() {
+  let lastHtml = ''
+  let lastTree = null
   for (let pass = 0; pass < 12; pass++) {
     dirty = false
     pendingEffects = []
+    collected = []
     current = { fn: Page, index: 0 }
-    const html = render(React.createElement(Page))
-    // run this pass's effects, then flush any state they set
+    const tree = React.createElement(Page)
+    lastTree = tree
+    lastHtml = render(tree)
     for (const eff of pendingEffects) { try { eff() } catch (e) { console.error('effect error:', e.message) } }
     await new Promise((r) => setTimeout(r, 30))
-    if (!dirty) return html
+    if (!dirty) return { html: lastHtml, tree: lastTree }
   }
-  return '<p>render did not settle</p>'
+  return { html: '<p>render did not settle</p>', tree: lastTree }
 }
 
-const html = await paint()
-fs.writeFileSync('F:/zz12hui/dsh-radar-plugin/.preview.html',
+let { html } = await paint()
+
+if (process.env.PREVIEW_DETAIL) {
+  // Click the first row's 详情 button, let the README fetch resolve, repaint.
+  const button = collected.find((el) => el.type === 'button' && el.label === '详情')
+  if (!button) throw new Error('no detail button produced during render')
+  button.props.onClick({ stopPropagation() {} })
+  await new Promise((r) => setTimeout(r, 80))
+  ;({ html } = await paint())
+}
+
+fs.writeFileSync(`${ROOT}/.preview.html`,
   `<!doctype html><meta charset="utf-8"><body style="margin:0;background:#141414">${html}</body>`, 'utf8')
-console.log('tab:', process.env.PREVIEW_TAB || 'discover')
-console.log('wrote .preview.html', fs.statSync('F:/zz12hui/dsh-radar-plugin/.preview.html').size, 'bytes')
-console.log('sample:', html.slice(0, 220).replace(/\s+/g, ' '))
+console.log('tab:', process.env.PREVIEW_TAB || 'discover', '| detail:', process.env.PREVIEW_DETAIL ? 'open' : 'closed')
+console.log('wrote .preview.html', fs.statSync(`${ROOT}/.preview.html`).size, 'bytes')

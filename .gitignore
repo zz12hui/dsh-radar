@@ -8,3 +8,6 @@ data/search_*.json
 data/search_skills_*.json
 *.log
 .DS_Store
+.preview*
+_probe.html
+_shot_*.png

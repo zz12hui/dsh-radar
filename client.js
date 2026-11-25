@@ -94,6 +94,13 @@ window.__ModuleLoader__.load({
       return snapshotPromise
     }
 
+    /** Drop the cached snapshot and pull again — used after a manual refresh. */
+    async function reloadSnapshot() {
+      snapshot = null
+      snapshotPromise = null
+      return loadSnapshot()
+    }
+
     const fmt = (n) => {
       if (!n) return '0'
       if (n >= 100000000) return (n / 100000000).toFixed(1).replace(/\.0$/, '') + '亿'
@@ -320,7 +327,7 @@ window.__ModuleLoader__.load({
 .rr .dstat b { font-size:22px; color:var(--dsw-alias-state-success-primary,#41c98a); font-variant-numeric:tabular-nums; letter-spacing:-.4px; }
 .rr .dstat span { font-size:12px; color:var(--dsw-alias-label-tertiary,#8b8b8b); }
 .rr .list { border:1px solid var(--dsw-alias-border-l2,#333); border-radius:10px; overflow:hidden; }
-.rr .row { display:grid; grid-template-columns:20px minmax(0,1fr) 66px 70px 108px; gap:10px; align-items:center; padding:9px 11px; border-bottom:1px solid var(--dsw-alias-border-l1,#2a2a2a); cursor:pointer; }
+.rr .row { display:grid; grid-template-columns:20px minmax(0,1fr) 60px 64px 152px; gap:10px; align-items:center; padding:9px 11px; border-bottom:1px solid var(--dsw-alias-border-l1,#2a2a2a); cursor:pointer; }
 .rr .row:last-child { border-bottom:0; }
 .rr .row:hover { background:var(--dsw-alias-interactive-bg-hover,rgba(255,255,255,.05)); }
 .rr .row.cur { background:rgba(91,157,255,.1); box-shadow:inset 2px 0 0 var(--dsw-alias-state-business-primary,#5b9dff); }
@@ -340,7 +347,7 @@ window.__ModuleLoader__.load({
 .rr .row .num i { display:block; font-style:normal; font-size:10.5px; color:var(--dsw-alias-label-caption,#777); }
 .rr .row .cp { font:inherit; font-size:11px; padding:3px 7px; border-radius:6px; cursor:pointer; border:1px solid var(--dsw-alias-border-l2,#333); background:transparent; color:var(--dsw-alias-label-secondary,#b4b4b4); white-space:nowrap; }
 .rr .row .cp:hover { color:var(--dsw-alias-label-primary,#e6e6e6); border-color:var(--dsw-alias-border-l3,#444); }
-    @media (max-width:760px){ .rr .row { grid-template-columns:20px minmax(0,1fr) 70px 88px } .rr .row .num.dl { display:none } }
+    @media (max-width:760px){ .rr .row { grid-template-columns:20px minmax(0,1fr) 56px 152px } .rr .row .num.dl { display:none } }
 .rr .picks { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:10px; }
 .rr .pickc { border:1px solid var(--dsw-alias-border-l2,#333); border-radius:10px; padding:11px 12px; background:var(--dsw-alias-bg-layer-1,rgba(255,255,255,.02)); display:flex; flex-direction:column; gap:6px; }
 .rr .pickc .t { display:flex; align-items:center; gap:6px; min-width:0; }
@@ -377,6 +384,40 @@ window.__ModuleLoader__.load({
 .rr .modal .mf button { font:inherit; font-size:12.5px; padding:6px 14px; border-radius:8px; cursor:pointer; border:1px solid var(--dsw-alias-border-l2,#333); background:transparent; color:inherit; }
 .rr .modal .mf button.pri { background:var(--dsw-alias-button-primary-fill,#2f6fe4); border-color:transparent; color:#fff; }
 .rr .modal .mf .hint { font-size:11.5px; color:var(--dsw-alias-label-tertiary,#8b8b8b); margin-left:auto; align-self:center; }
+.rr .upd { display:flex; flex-direction:column; gap:6px; margin-top:2px; padding-top:9px; border-top:1px solid var(--dsw-alias-border-l1,#2a2a2a); }
+.rr .upd .lbl { font-size:11.5px; color:var(--dsw-alias-label-tertiary,#8b8b8b); }
+.rr .upd .go { display:flex; align-items:center; gap:8px; }
+.rr .upd .go button { font:inherit; font-size:12px; padding:5px 13px; border-radius:8px; cursor:pointer; border:0; background:var(--dsw-alias-button-primary-fill,#2f6fe4); color:#fff; }
+.rr .upd .go button[disabled] { opacity:.55; cursor:default; }
+.rr .upd .go .meta { font-size:11px; color:var(--dsw-alias-label-caption,#777); }
+.rr .upd .err { font-size:11px; color:var(--dsw-alias-state-error-primary,#d9534f); }
+.rr .row .acts .mini { flex:none; font:inherit; font-size:10.5px; padding:2px 6px; border-radius:5px; cursor:pointer; border:1px solid var(--dsw-alias-border-l2,#333); background:transparent; color:var(--dsw-alias-label-secondary,#b4b4b4); white-space:nowrap; }
+.rr .row .acts .mini:hover { color:var(--dsw-alias-label-primary,#e6e6e6); border-color:var(--dsw-alias-border-l3,#444); }
+.rr .dtl .box { width:min(880px,100%); max-height:86vh; }
+.rr .dtl .dh { padding:14px 18px 11px; }
+.rr .dtl .dh .rname { font-size:15.5px; font-weight:650; letter-spacing:-.2px; word-break:break-all; }
+.rr .dtl .dh .rdesc { font-size:12.5px; color:var(--dsw-alias-label-secondary,#b4b4b4); margin-top:5px; line-height:1.55; }
+.rr .dtl .dh .rlink { font-size:12px; margin-top:7px; }
+.rr .dtl .dh .rlink a { color:var(--dsw-alias-state-business-primary,#5b9dff); text-decoration:none; }
+.rr .dtl .dh .rlink a:hover { text-decoration:underline; }
+.rr .dtl .dmeta { display:flex; gap:14px; flex-wrap:wrap; font-size:11.5px; color:var(--dsw-alias-label-tertiary,#8b8b8b); padding:0 18px 10px; }
+.rr .dtl .dbody { overflow:auto; padding:0 18px 18px; flex:1; min-height:120px; }
+.rr .md { font-size:13px; line-height:1.72; color:var(--dsw-alias-label-secondary,#c4c4c4); }
+.rr .md h1, .rr .md h2, .rr .md h3, .rr .md h4 { color:var(--dsw-alias-label-primary,#e6e6e6); margin:18px 0 8px; font-weight:650; letter-spacing:-.1px; }
+.rr .md h1 { font-size:18px; } .rr .md h2 { font-size:16px; } .rr .md h3 { font-size:14px; } .rr .md h4 { font-size:13px; }
+.rr .md p { margin:0 0 10px; }
+.rr .md ul, .rr .md ol { margin:0 0 10px; padding-left:19px; }
+.rr .md li { margin-bottom:4px; }
+.rr .md code { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:11.5px; padding:1px 5px; border-radius:5px; background:var(--dsw-alias-bg-layer-3,rgba(255,255,255,.07)); }
+.rr .md pre { margin:0 0 12px; padding:11px 12px; border-radius:8px; background:var(--dsw-alias-bg-layer-3,rgba(0,0,0,.35)); border:1px solid var(--dsw-alias-border-l1,#2a2a2a); overflow:auto; }
+.rr .md pre code { background:none; padding:0; font-size:11.5px; line-height:1.55; }
+.rr .md blockquote { margin:0 0 10px; padding:2px 0 2px 11px; border-left:2px solid var(--dsw-alias-border-l3,#444); color:var(--dsw-alias-label-tertiary,#8b8b8b); }
+.rr .md a { color:var(--dsw-alias-state-business-primary,#5b9dff); text-decoration:none; }
+.rr .md a:hover { text-decoration:underline; }
+.rr .md hr { border:0; border-top:1px solid var(--dsw-alias-border-l2,#333); margin:14px 0; }
+.rr .md img { max-width:100%; }
+.rr .md .imgph { font-size:11px; color:var(--dsw-alias-label-caption,#777); border:1px dashed var(--dsw-alias-border-l2,#333); border-radius:6px; padding:2px 6px; }
+.rr .dtl .foot { padding:0 18px 14px; font-size:11.5px; color:var(--dsw-alias-label-caption,#777); }
 `
 
     /* -------------------------------------------------------------- components */
@@ -414,6 +455,220 @@ window.__ModuleLoader__.load({
       }
     }
 
+    /* ---------------------------------------------------------------- markdown */
+
+    const INLINE_RE = /(\*\*[^*]+\*\*|`[^`]+`|!\[[^\]]*\]\([^)]+\)|\[[^\]]+\]\([^)]+\))/
+
+    /** Inline spans only: bold, code, links, images (shown as a placeholder chip). */
+    function inlineNodes(text, keyBase) {
+      const nodes = []
+      let rest = String(text)
+      let n = 0
+      while (rest.length) {
+        const hit = INLINE_RE.exec(rest)
+        if (hit === null) {
+          nodes.push(rest)
+          break
+        }
+        if (hit.index > 0) nodes.push(rest.slice(0, hit.index))
+        const token = hit[0]
+        const key = `${keyBase}-${n++}`
+        if (token.startsWith('**')) {
+          nodes.push(h('b', { key }, token.slice(2, -2)))
+        } else if (token.startsWith('`')) {
+          nodes.push(h('code', { key }, token.slice(1, -1)))
+        } else if (token.startsWith('![')) {
+          const m = /^!\[([^\]]*)\]\(([^)]+)\)$/.exec(token)
+          nodes.push(h('span', { key, className: 'imgph', title: m ? m[2] : '' }, m && m[1] ? `图片：${m[1]}` : '图片'))
+        } else {
+          const m = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(token)
+          if (m) {
+            nodes.push(h('a', { key, href: m[2], target: '_blank', rel: 'noopener noreferrer' }, m[1]))
+          } else {
+            nodes.push(token)
+          }
+        }
+        rest = rest.slice(hit.index + token.length)
+      }
+      return nodes
+    }
+
+    /**
+     * READMEs lean on HTML for their header badges and centred blocks.
+     * Rendering those tags as text turns the top of every document into noise,
+     * so fold them down first: images keep their alt text, links keep their
+     * label and target, and the rest of the markup goes away.
+     */
+    function flattenHtml(source) {
+      let text = String(source || '')
+      if (text.indexOf('<') === -1) return text
+      text = text.replace(/<img\b[^>]*>/gi, (tag) => {
+        const alt = /alt="([^"]*)"/i.exec(tag)
+        const label = alt && alt[1] ? alt[1].replace(/\s+/g, ' ').trim() : ''
+        return label ? `图片：${label}` : '图片'
+      })
+      text = text.replace(/<a\b[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, (_, href, label) => {
+        const clean = String(label).replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
+        return clean ? `[${clean}](${href})` : ''
+      })
+      text = text.replace(/<br\s*\/?>/gi, '\n')
+      text = text.replace(/<\/(p|div|h[1-6]|li|tr)>/gi, '\n')
+      text = text.replace(/<(strong|b)>/gi, '**').replace(/<\/(strong|b)>/gi, '**')
+      text = text.replace(/<code>/gi, '`').replace(/<\/code>/gi, '`')
+      // Anything left is structural: for a text view it is only in the way.
+      text = text.replace(/<[^>]+>/g, '')
+      // Badge rows are usually one image per line, several lines in a row. A
+      // run of them is noise in a text view, so collapse it to one marker.
+      const onlyBadge = /^\s*(?:\[图片：?[^\]]*\]\([^)]*\)|图片：?\S*)\s*$/
+      const merged = []
+      let run = []
+      const flushRun = () => {
+        if (run.length >= 2) merged.push('图片（徽章组）')
+        else if (run.length === 1) merged.push(run[0])
+        run = []
+      }
+      for (const line of text.split('\n')) {
+        if (onlyBadge.test(line)) {
+          run.push(line)
+          continue
+        }
+        flushRun()
+        merged.push(line)
+      }
+      flushRun()
+      text = merged.join('\n')
+      // Collapse the blank lines those blocks leave behind.
+      text = text.replace(/\n{3,}/g, '\n\n')
+      return text
+    }
+
+    /**
+     * Just enough markdown for a README: headings, fenced code, lists,
+     * blockquotes, rules and paragraphs. Unknown lines fall through as text,
+     * which is the right failure mode for a document viewer.
+     */
+    function renderMarkdown(source) {
+      const lines = flattenHtml(source).replace(/\r\n/g, '\n').split('\n')
+      const out = []
+      let fence = null
+      let buf = []
+      let key = 0
+
+      const flushParagraph = () => {
+        if (!buf.length) return
+        const text = buf.join(' ').trim()
+        buf = []
+        if (text) out.push(h('p', { key: `p${key++}` }, inlineNodes(text, `p${key}`)))
+      }
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i]
+        const fenceHit = /^\s*(```+|~~~+)(.*)$/.exec(line)
+        if (fenceHit) {
+          if (fence === null) {
+            flushParagraph()
+            fence = { marker: fenceHit[1][0], lang: fenceHit[2].trim(), body: [] }
+          } else {
+            out.push(h('pre', { key: `c${key++}` },
+              h('code', { className: fence.lang ? `lang-${fence.lang}` : undefined }, fence.body.join('\n')),
+            ))
+            fence = null
+          }
+          continue
+        }
+        if (fence !== null) {
+          fence.body.push(line)
+          continue
+        }
+
+        if (!line.trim()) {
+          flushParagraph()
+          continue
+        }
+        const heading = /^\s{0,3}(#{1,6})\s+(.*)$/.exec(line)
+        if (heading) {
+          flushParagraph()
+          const level = Math.min(6, heading[1].length)
+          out.push(h(`h${level}`, { key: `h${key++}` }, inlineNodes(heading[2].replace(/\s+#+$/, ''), `h${key}`)))
+          continue
+        }
+        if (/^\s{0,3}([-*_])\s*\1\s*\1[\s\-*_]*$/.test(line)) {
+          flushParagraph()
+          out.push(h('hr', { key: `r${key++}` }))
+          continue
+        }
+        const quote = /^\s{0,3}>\s?(.*)$/.exec(line)
+        if (quote) {
+          flushParagraph()
+          const body = [quote[1]]
+          while (i + 1 < lines.length && /^\s{0,3}>\s?/.test(lines[i + 1])) {
+            i++
+            body.push(lines[i].replace(/^\s{0,3}>\s?/, ''))
+          }
+          out.push(h('blockquote', { key: `q${key++}` }, inlineNodes(body.join(' '), `q${key}`)))
+          continue
+        }
+        const bullet = /^\s{0,3}[-*+]\s+(.*)$/.exec(line)
+        if (bullet) {
+          flushParagraph()
+          const items = [bullet[1]]
+          while (i + 1 < lines.length) {
+            const next = /^\s{0,3}[-*+]\s+(.*)$/.exec(lines[i + 1])
+            if (!next) break
+            i++
+            items.push(next[1])
+          }
+          out.push(h('ul', { key: `u${key++}` },
+            items.map((text, idx) => h('li', { key: idx }, inlineNodes(text, `u${key}-${idx}`))),
+          ))
+          continue
+        }
+        const ordered = /^\s{0,3}\d+[.)]\s+(.*)$/.exec(line)
+        if (ordered) {
+          flushParagraph()
+          const items = [ordered[1]]
+          while (i + 1 < lines.length) {
+            const next = /^\s{0,3}\d+[.)]\s+(.*)$/.exec(lines[i + 1])
+            if (!next) break
+            i++
+            items.push(next[1])
+          }
+          out.push(h('ol', { key: `o${key++}` },
+            items.map((text, idx) => h('li', { key: idx }, inlineNodes(text, `o${key}-${idx}`))),
+          ))
+          continue
+        }
+        // Table rows and anything else stay as paragraph text.
+        buf.push(line.trim())
+      }
+      flushParagraph()
+      if (fence !== null && fence.body.length) {
+        out.push(h('pre', { key: `c${key++}` }, h('code', null, fence.body.join('\n'))))
+      }
+      if (!out.length) out.push(h('p', { key: 'empty' }, '（README 是空的）'))
+      return out
+    }
+
+    /** Open a repository page in the OS default browser. */
+    function openExternal(url) {
+      try {
+        const win = window.open(url, '_blank', 'noopener,noreferrer')
+        if (win) return true
+      } catch {}
+      try {
+        const a = document.createElement('a')
+        a.href = url
+        a.target = '_blank'
+        a.rel = 'noopener noreferrer'
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        return true
+      } catch {
+        return false
+      }
+    }
+
     function RadarPage() {
       const [data, setData] = React.useState(snapshot)
       const [error, setError] = React.useState('')
@@ -429,6 +684,11 @@ window.__ModuleLoader__.load({
       const [rankLimit, setRankLimit] = React.useState(60)
       const [onlyLive, setOnlyLive] = React.useState(false)
       const [cursor, setCursor] = React.useState(-1)
+      const [detail, setDetail] = React.useState(null)
+      const [busy, setBusy] = React.useState(false)
+      const [srcNpm, setSrcNpm] = React.useState(true)
+      const [srcGithub, setSrcGithub] = React.useState(true)
+      const [refreshNote, setRefreshNote] = React.useState('')
 
       const rootRef = React.useRef(null)
       const searchRef = React.useRef(null)
@@ -566,6 +826,86 @@ window.__ModuleLoader__.load({
         [showToast],
       )
 
+      /** Pull the repository README once and park it on the open detail object. */
+      const openDetail = React.useCallback((item) => {
+        const repo = item.repo || item.id || ''
+        if (!repo) return
+        setDetail({
+          id: item.id,
+          repo,
+          desc: item.zh || item.desc || '',
+          stars: item.stars || 0,
+          dl: item.dl || 0,
+          pushed: item.pushed,
+          lic: item.lic || '',
+          cat: item.cat || '',
+          kind: item.kind || 'plugin',
+          loading: true,
+          text: '',
+          error: '',
+          truncated: false,
+        })
+        fetch(`${bridgeUrl('readme')}?repo=${encodeURIComponent(repo)}`, { signal: AbortSignal.timeout(30000) })
+          .then((r) => r.json())
+          .then((json) => {
+            setDetail((prev) => (prev && prev.repo === repo
+              ? {
+                  ...prev,
+                  loading: false,
+                  text: json.text || '',
+                  truncated: Boolean(json.truncated),
+                  error: json.ok === false ? String(json.error || '读取失败') : '',
+                }
+              : prev))
+          })
+          .catch((error) => {
+            setDetail((prev) => (prev && prev.repo === repo
+              ? { ...prev, loading: false, error: String(error?.message ?? error) }
+              : prev))
+          })
+      }, [])
+
+      const doRefresh = React.useCallback(async () => {
+        if (busy) return
+        if (!srcNpm && !srcGithub) {
+          setRefreshNote('至少选一个数据源')
+          return
+        }
+        setBusy(true)
+        setRefreshNote('正在抓取，两个源大概 20 秒…')
+        try {
+          const response = await fetch(bridgeUrl('refresh'), {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ npm: srcNpm, github: srcGithub, pages: 3 }),
+            signal: AbortSignal.timeout(180000),
+          })
+          const result = await response.json()
+          if (!result.ok) {
+            setRefreshNote(`更新失败：${result.error || '未知错误'}`)
+            return
+          }
+          const next = await reloadSnapshot()
+          setData(next)
+          const stamp = (next.refreshedAt || '').slice(0, 16).replace('T', ' ')
+          const skips = Number(result.githubSkipped) || 0
+          const parts = [
+            `已更新 ${stamp}`,
+            `新增 ${result.added} 条`,
+            `GitHub 直检 ${result.githubAdded} 条`,
+          ]
+          if (skips) parts.push(`滤掉 ${skips} 个蹭 topic 的仓库`)
+          // A page that failed to arrive is worth showing; a clean run is not.
+          const notes = Array.isArray(result.errors) ? result.errors : []
+          setRefreshNote(parts.join(' · ') + (notes.length ? `　（${notes.join('；')}）` : ''))
+          showToast(`数据已更新：${result.plugins} 个插件${notes.length ? '，有部分源没拉全' : ''}`)
+        } catch (error) {
+          setRefreshNote(`更新失败：${error?.message ?? error}`)
+        } finally {
+          setBusy(false)
+        }
+      }, [busy, srcNpm, srcGithub, showToast])
+
       /* Keyboard: / focuses search, j/k walk, space selects, Enter sends. */
       React.useEffect(() => {
         const onKey = (event) => {
@@ -573,6 +913,7 @@ window.__ModuleLoader__.load({
           const typing = target instanceof HTMLElement
             && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
           if (event.key === 'Escape') {
+            if (detail !== null) { setDetail(null); event.preventDefault(); return }
             if (prompt !== null) { setPrompt(null); event.preventDefault(); return }
             if (typing) { target.blur(); return }
             backToConversation()
@@ -610,7 +951,7 @@ window.__ModuleLoader__.load({
         }
         window.addEventListener('keydown', onKey)
         return () => window.removeEventListener('keydown', onKey)
-      }, [flat, cursor, prompt, toggle, sendToComposer])
+      }, [flat, cursor, prompt, detail, toggle, sendToComposer])
 
       /* Keep the cursor row in view while walking with j/k. */
       React.useEffect(() => {
@@ -716,12 +1057,52 @@ window.__ModuleLoader__.load({
         ]),
       )
 
+      const detailModal = detail === null ? null : h('div', {
+        className: 'modal dtl', key: 'dtl',
+        onClick: (e) => { if (e.target === e.currentTarget) setDetail(null) },
+      },
+        h('div', { className: 'box' }, [
+          h('div', { className: 'mh dh', key: 'h' }, [
+            h('div', { key: 'w', style: { minWidth: 0 } }, [
+              h('div', { className: 'rname', key: 'n' }, detail.repo),
+              detail.desc ? h('div', { className: 'rdesc', key: 'd' }, detail.desc) : null,
+              h('div', { className: 'rlink', key: 'l' }, [
+                h('a', {
+                  href: `https://github.com/${detail.repo}`,
+                  target: '_blank', rel: 'noopener noreferrer',
+                  onClick: (e) => { e.preventDefault(); openExternal(`https://github.com/${detail.repo}`) },
+                }, `https://github.com/${detail.repo} ↗`),
+              ]),
+            ]),
+            h('button', { key: 'x', onClick: () => setDetail(null), 'aria-label': '关闭' }, '×'),
+          ]),
+          h('div', { className: 'dmeta', key: 'm' }, [
+            h('span', { key: 'a' }, `★ ${fmt(detail.stars)}`),
+            detail.kind === 'plugin' ? h('span', { key: 'b' }, `⤓ ${fmt(detail.dl)} 月下载`) : null,
+            h('span', { key: 'c' }, `更新 ${fresh(detail.pushed)}`),
+            detail.lic ? h('span', { key: 'd' }, detail.lic) : null,
+            detail.cat ? h('span', { key: 'e' }, catName(data.cats, detail.cat)) : null,
+          ]),
+          h('div', { className: 'dbody', key: 'b' }, [
+            detail.loading
+              ? h('div', { className: 'loading', key: 'l' }, '正在读取 README…')
+              : detail.error
+                ? h('div', { className: 'err', key: 'e' }, detail.error)
+                : h('div', { className: 'md', key: 'md' }, renderMarkdown(detail.text)),
+          ]),
+          detail.truncated
+            ? h('div', { className: 'foot', key: 'f' }, 'README 太长，这里只显示前 400 KB。')
+            : null,
+        ]),
+      )
+
       return h('div', { className: 'rr', ref: rootRef }, [
         h('style', { key: 'style' }, CSS),
         header,
         tabs,
         body,
         bar,
+        detailModal,
         modal,
         toast
           ? h('div', { className: 'toast', key: 'toast' }, [
@@ -836,6 +1217,24 @@ window.__ModuleLoader__.load({
               h('input', { key: 'i', type: 'checkbox', checked: cfg.fresh, onChange: (e) => update({ fresh: e.target.checked }) }),
               '优先最近更新',
             ]),
+            h('div', { className: 'upd', key: 'upd' }, [
+              h('div', { className: 'lbl', key: 'l' }, '更新数据（选中要抓的源）'),
+              h('label', { className: 'sw', key: 'npm', style: { margin: 0 } }, [
+                h('input', { key: 'i', type: 'checkbox', checked: srcNpm, onChange: (e) => setSrcNpm(e.target.checked) }),
+                'npm 插件目录（全量清单）',
+              ]),
+              h('label', { className: 'sw', key: 'gh', style: { margin: 0 } }, [
+                h('input', { key: 'i', type: 'checkbox', checked: srcGithub, onChange: (e) => setSrcGithub(e.target.checked) }),
+                'GitHub topic:dsh-plugin（新仓库）',
+              ]),
+              h('div', { className: 'go', key: 'go' }, [
+                h('button', { key: 'b', disabled: busy, onClick: doRefresh }, busy ? '更新中…' : '手动更新'),
+                h('span', { className: 'meta', key: 'm' }, data.refreshedAt ? `上次 ${String(data.refreshedAt).slice(0, 16).replace('T', ' ')}` : '还没手动更新过'),
+              ]),
+              refreshNote
+                ? h('div', { className: refreshNote.indexOf('失败') === 0 ? 'err' : 'meta', key: 'n', style: { fontSize: 11, lineHeight: 1.5 } }, refreshNote)
+                : null,
+            ]),
             h('div', { className: 'acts', key: 'acts' }, [
               h('button', {
                 key: 'r',
@@ -914,19 +1313,30 @@ window.__ModuleLoader__.load({
             h('span', { key: 's' }, [h('i', { key: 'i' }, it.badge), isPlugin ? it.zh : `${it.owner} · ${it.desc}`]),
           ]),
           h('div', { className: 'num', key: 'st' }, [fmt(it.stars), h('i', { key: 'l' }, '星标')]),
-          h('div', { className: 'num', key: 'dl' }, [
+          h('div', { className: 'num dl', key: 'dl' }, [
             isPlugin ? fmt(it.dl) : (it.score ?? 0).toFixed(1),
             h('i', { key: 'l' }, isPlugin ? '月下载' : '综合分'),
           ]),
-          h('div', { key: 'acts', style: { display: 'flex', gap: 4 } }, [
+          h('div', { key: 'acts', style: { display: 'flex', gap: 4, justifyContent: 'flex-end' } }, [
             h('button', {
-              key: 'go', className: 'cp', title: '放进会话输入框',
+              key: 'dt', className: 'mini', title: '查看仓库详情与 README',
+              onClick: (e) => { e.stopPropagation(); openDetail(it) },
+            }, '详情'),
+            h('button', {
+              key: 'go', className: 'mini', title: '放进会话输入框',
               onClick: (e) => { e.stopPropagation(); sendToComposer([it]) },
             }, '放入'),
             h('button', {
-              key: 'cp', className: 'cp', title: '复制安装提示词',
+              key: 'cp', className: 'mini', title: '复制安装提示词',
               onClick: async (e) => { e.stopPropagation(); await copyOne(it) },
             }, '复制'),
+            h('a', {
+              key: 'op', className: 'mini', title: '在默认浏览器里打开仓库',
+              href: `https://github.com/${it.repo || it.id}`,
+              target: '_blank', rel: 'noopener noreferrer',
+              onClick: (e) => e.stopPropagation(),
+              style: { textDecoration: 'none', display: 'inline-block' },
+            }, '↗'),
           ]),
         ])
       }

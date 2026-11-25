@@ -1,6 +1,6 @@
 {
   "name": "dsh-radar",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
   "description": "生态雷达：DSH 插件与 Agent Skills 的排行导航，侧栏一键打开，可复制提示词让会话直接安装",
@@ -17,6 +17,7 @@
     "data/radar.json",
     "locale/*.json",
     "docs/DETAIL.md",
+    "docs/*.png",
     "icon.svg"
   ],
   "dsh": {
